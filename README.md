@@ -27,25 +27,25 @@ MongoDB is a cross-platform document-oriented database program. It is issued und
 
 # Functions Used:
 
-url_builder
+## url_builder
 
 Usewd to Build Various URL's so that it can be used for the fetch function.
 
-time_converter
+## time_converter
 
 The time fetched by the function using API is not in date-time format so inorder to convert it in the same the function is used.
 
-data_fetch
+## data_fetch
 
 Then main work of this function is to fetch the data from the API 
 
 
-data_organizer
+## data_organizer
 
 The fetch raw data is passsed on to the data_organizer function which arranges the data in Dictionary in a proper format.
 
-db_5
-db_16
+## db_5
+## db_16
 
 Both the function access the MongoDB Collections inside the database and add data to it.
 
