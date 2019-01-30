@@ -1,0 +1,180 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[30]:
+
+
+import datetime
+import json
+import os
+import threading 
+import urllib.request
+from PIL import Image
+from multiprocessing import Pool
+from pymongo import MongoClient
+from ratelimit import limits, RateLimitException
+from ratelimit import limits
+
+
+
+# Function to convert the time in numbers to Proper time format
+
+def time_converter(time):
+    converted_time = datetime.datetime.fromtimestamp(
+        int(time)
+    ).strftime('%I:%M %p')
+ 
+    return converted_time
+
+# Function to build the URL of the API
+
+def url_builder(city_id , id_type):
+    
+    user_api = '5b49c10853797e6bf98308cb473958cb'  # Obtain yours form: http://openweathermap.org/
+    unit = 'metric'  # For Fahrenheit use imperial, for Celsius use metric, and the default is Kelvin.
+    api = 'http://api.openweathermap.org/data/2.5/weather?id='     # Search for your city ID here: http://bulk.openweathermap.org/sample/city.list.json.gz
+    
+    if id_type=="5_days":
+    
+        full_api_url = api + str(city_id) + '&mode=json&units=' + unit + '&APPID=' + user_api
+    
+
+    elif id_type == "16_days":
+    
+        full_api_url = api + str(city_id) +'&cnt=16'+ '&mode=json&units=' + unit + '&APPID=' + user_api
+        
+
+    return full_api_url
+
+# Referesh Rate limiter function
+# Function to fetch data from the API
+ONE_MINUTES = 60
+@limits(calls=5, period=ONE_MINUTES)
+def data_fetch(full_api_url):
+    url = urllib.request.urlopen(full_api_url) 
+    output = url.read().decode('utf-8')
+    raw_api_dict = json.loads(output)
+    url.close()
+    
+    return raw_api_dict
+    
+    
+# Function to store data into Dictionary in form of key_value pair
+
+def data_organizer(raw_api_dict):
+    data = dict(
+        city=raw_api_dict.get('name'),
+        country=raw_api_dict.get('sys').get('country'),
+        temp=raw_api_dict.get('main').get('temp'),
+        temp_max=raw_api_dict.get('main').get('temp_max'),
+        temp_min=raw_api_dict.get('main').get('temp_min'),
+        humidity=raw_api_dict.get('main').get('humidity'),
+        pressure=raw_api_dict.get('main').get('pressure'),
+        sky=raw_api_dict['weather'][0]['main'],
+        sunrise=time_converter(raw_api_dict.get('sys').get('sunrise')),
+        sunset=time_converter(raw_api_dict.get('sys').get('sunset')),
+        wind=raw_api_dict.get('wind').get('speed'),
+        wind_deg=raw_api_dict.get('deg'),
+        dt=time_converter(raw_api_dict.get('dt')),
+        cloudiness=raw_api_dict.get('clouds').get('all'),
+        lat = raw_api_dict.get('coord').get('lat'),
+        lon = raw_api_dict.get('coord').get('lon')
+    )
+    
+    return data
+
+# Stroing Data into five_days collection of weather database Mongodb 
+
+def db_5():
+    
+
+    
+# Calling the url builder function , data_fetch function to get the url and get raw data and usinf data_organizer function to get the data into dictionary form.
+
+    dic = data_organizer(data_fetch(url_builder(2172797,"5_days")))
+
+#     print(dic)
+# Connecting to Local Mongodb 
+
+    client = MongoClient('mongodb://localhost:27017/')
+    
+# Using  Database Weather
+
+    db = client.weather
+
+    collection = db.five_days
+    
+# Defining the data 
+
+    record = { 
+            "Country":dic['country'],"City":dic['city'],"temp":dic['temp'],"temp_max":dic['temp_max'],"temp_min":dic['temp_min'],
+            "humidity":dic['humidity'],"pressure":dic['pressure'],"sky":dic['sky'],"sunrise":dic['sunrise'],"sunset":dic['sunset'],"wind":dic['wind'],
+            "wind_deg":dic['wind_deg'],"dt":dic['dt'],"cloudiness":dic['cloudiness'],"Lon":dic['lon'],"Lat":dic['lat']
+            } 
+
+# Inserting record in the DB
+
+    rec_id1 = collection.insert(record)
+
+
+# Stroing Data into sixteen_days collection of weather database Mongodb    
+    
+def db_16():
+
+# Calling the url builder function , data_fetch function to get the url and get raw data and usinf data_organizer function to get the data into dictionary form. 
+
+    dic = data_organizer(data_fetch(url_builder(2172797,"16_days")))
+    
+# Connecting to Local Mongodb 
+
+    client = MongoClient('mongodb://localhost:27017/')
+
+# Using Database Weather    
+
+    db = client.weather
+
+# Using  Collection five_days
+
+    collection = db.sixteen_days
+
+# Defining the data 
+    
+    record = { 
+            "Country":dic['country'],"City":dic['city'],"temp":dic['temp'],"temp_max":dic['temp_max'],"temp_min":dic['temp_min'],
+            "humidity":dic['humidity'],"pressure":dic['pressure'],"sky":dic['sky'],"sunrise":dic['sunrise'],"sunset":dic['sunset'],"wind":dic['wind'],
+            "wind_deg":dic['wind_deg'],"dt":dic['dt'],"cloudiness":dic['cloudiness'],"Lon":dic['lon'],"Lat":dic['lat']
+            } 
+
+# Inserting record in the DB
+
+    rec_id1 = collection.insert(record)
+        
+    
+if __name__ == '__main__':
+# Using multithreading to run the process simultaniously    
+    try:
+        
+        t1 = threading.Thread(target=db_5) 
+        t2 = threading.Thread(target=db_16)
+#       # starting thread 1 
+        t1.start() 
+        t2.start() 
+#      # wait until thread 1 is completely executed 
+        t1.join() 
+        t2.join() 
+    except IOError:
+        print('Thread not Working')
+    
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
